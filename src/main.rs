@@ -113,8 +113,107 @@ fn print_codes(device:&Device){
 	}
 }
 
+fn draw_bar(label:&str, left_to_right:bool, inverted:bool, length:i32, min:i32, max:i32, value:i32) -> String{
+	let label_len:i32 = label.len() as i32;
+	if label_len + 1 + 2 > length{
+		return String::from(label);
+	}
+	let mut ret = String::from(label);
+
+	let mut value = value - min;
+	let mut range = max - min;
+	if value < 0{
+		value = 0;
+	}
+	if range <= 0{
+		range = 1;
+	}
+
+	let bar_size = length - label_len - 2;
+	let mut filling = bar_size * value / range;
+	if inverted{
+		filling = bar_size - filling;
+	}
+	let empty = bar_size - filling;
+
+	ret.push('|');
+	let mut i = 0;
+	if left_to_right{
+		while i < filling{
+			ret.push('█');
+			i = i + 1;
+		}
+		i = 0;
+		while i < empty{
+			ret.push(' ');
+			i = i + 1;
+		}
+	}else{
+		while i < empty{
+			ret.push(' ');
+			i = i + 1;
+		}
+		i = 0;
+		while i < filling{
+			ret.push('█');
+			i = i + 1;
+		}
+	}
+	ret.push('|');
+	return ret;
+}
+
+fn draw_left_right_bar(label:&str, inverted:bool, length:i32, min:i32, max:i32, value:i32) -> String{
+	let label_len:i32 = label.len() as i32;
+	if label_len + 2 > length{
+		return String::from(label);
+	}
+
+	let mut ret = String::from(label);
+	let sub_bar_length = (length - label_len) / 2;
+
+	let center_value = (min + max) / 2;
+	let mut left_value = center_value - value;
+	let mut right_value = value - center_value;
+	if inverted{
+		let temp = left_value;
+		left_value = right_value;
+		right_value = temp;
+	}
+	if left_value < 0{
+		left_value = 0;
+	}
+	if right_value < 0{
+		right_value = 0;
+	}
+	ret.push_str(&draw_bar("", false, false, sub_bar_length, min, center_value, left_value));
+	if (length - label_len) % 2 != 0{
+		ret.push(' ');
+	}
+	ret.push_str(&draw_bar("", true, false, sub_bar_length, min, center_value, right_value));
+	return ret;
+}
+
 fn display_state(state:&State){
-	println!("{:#?}", state);	
+	let mut to_print = String::from("\x1b[2J\x1b[H");
+	to_print.push('\n');
+
+	let display_width = 50;
+	to_print.push_str(&draw_left_right_bar("steering:", state.invert_steering, display_width, state.steering_min, state.steering_max, state.steering));
+	to_print.push('\n');
+	to_print.push_str(&draw_bar("shift up:", true, false, display_width, 0, 1, if state.shift_up {1}else{0}));
+	to_print.push('\n');
+	to_print.push_str(&draw_bar("shift down:", true, false, display_width, 0, 1, if state.shift_down {1}else{0}));
+	to_print.push('\n');
+	to_print.push_str(&draw_bar("throttle:", true, state.invert_throttle, display_width, state.throttle_min, state.throttle_max, state.throttle));
+	to_print.push('\n');
+	to_print.push_str(&draw_bar("brake:", true, state.invert_brake, display_width, state.brake_min, state.brake_max, state.brake));
+	to_print.push('\n');
+	to_print.push_str(&draw_bar("clutch:", true, state.invert_clutch, display_width, state.clutch_min, state.clutch_max, state.clutch));
+	to_print.push('\n');
+
+	print!("{}", to_print);
+	//println!("{:#?}", state);
 }
 
 fn poller(initial_state:State){
@@ -201,7 +300,7 @@ fn poller(initial_state:State){
 		None => {panic!("cannot fetch info of handbrake");}
 	}
 
-	println!("{:#?}", state);
+	display_state(&state);
 
 	loop{
 		match device.fetch_events(){
