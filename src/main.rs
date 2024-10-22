@@ -1,4 +1,5 @@
 use evdev::{Device};
+use terminal_size::{Width, Height, terminal_size};
 
 #[derive(Debug)]
 struct State {
@@ -165,7 +166,7 @@ fn draw_bar(label:&str, left_to_right:bool, inverted:bool, length:i32, min:i32, 
 
 fn draw_left_right_bar(label:&str, inverted:bool, length:i32, min:i32, max:i32, value:i32) -> String{
 	let label_len:i32 = label.len() as i32;
-	if label_len + 2 > length{
+	if label_len + 6 > length{
 		return String::from(label);
 	}
 
@@ -194,22 +195,76 @@ fn draw_left_right_bar(label:&str, inverted:bool, length:i32, min:i32, max:i32, 
 	return ret;
 }
 
+fn clear_terminal_string() -> String{
+	return String::from("\x1b[2J\x1b[H");
+}
+
+fn red_text_terminal_string() -> String{
+	return String::from("\x1b[91m");
+}
+
+fn green_text_terminal_string() -> String{
+	return String::from("\x1b[92m");
+}
+
+fn yellow_text_terminal_string() -> String{
+	return String::from("\x1b[93m");
+}
+
+fn blue_text_terminal_string() -> String{
+	return String::from("\x1b[94m");
+}
+
+fn purple_text_terminal_string() -> String{
+	return String::from("\x1b[95m");
+}
+
+fn cyan_text_terminal_string() -> String{
+	return String::from("\x1b[96m");
+}
+
+fn end_color_terminal_string() -> String{
+	return String::from("\x1b[m");
+}
+
 fn display_state(state:&State){
-	let mut to_print = String::from("\x1b[2J\x1b[H");
+	let mut to_print = clear_terminal_string();
+
+	let mut display_width:i32 = 50;
+	match terminal_size(){
+		Some((w, h)) => {
+			display_width = w.0 as i32;
+		},
+		None => {}
+	}
+
+	to_print.push_str(&draw_left_right_bar("L/R:", state.invert_steering, display_width, state.steering_min, state.steering_max, state.steering));
+	to_print.push_str("\n\n");
+
+	to_print.push_str(&blue_text_terminal_string());
+	to_print.push_str(&draw_bar("T:  ", true, state.invert_throttle, display_width, state.throttle_min, state.throttle_max, state.throttle));
+	to_print.push_str(&end_color_terminal_string());
 	to_print.push('\n');
 
-	let display_width = 50;
-	to_print.push_str(&draw_left_right_bar("steering:", state.invert_steering, display_width, state.steering_min, state.steering_max, state.steering));
+	to_print.push_str(&red_text_terminal_string());
+	to_print.push_str(&draw_bar("B:  ", true, state.invert_brake, display_width, state.brake_min, state.brake_max, state.brake));
+	to_print.push_str(&end_color_terminal_string());
 	to_print.push('\n');
-	to_print.push_str(&draw_bar("shift up:", true, false, display_width, 0, 1, if state.shift_up {1}else{0}));
+
+	to_print.push_str(&red_text_terminal_string());
+	to_print.push_str(&draw_bar("HB: ", true, state.invert_handbrake, display_width, state.handbrake_min, state.handbrake_max, state.handbrake));
+	to_print.push_str(&end_color_terminal_string());
+	to_print.push_str("\n\n");
+
+	to_print.push_str(&yellow_text_terminal_string());
+	to_print.push_str(&draw_bar("C:  ", true, state.invert_clutch, display_width, state.clutch_min, state.clutch_max, state.clutch));
+	to_print.push_str(&end_color_terminal_string());
 	to_print.push('\n');
-	to_print.push_str(&draw_bar("shift down:", true, false, display_width, 0, 1, if state.shift_down {1}else{0}));
+
+
+	to_print.push_str(&draw_bar("SU: ", true, false, display_width, 0, 1, if state.shift_up {1}else{0}));
 	to_print.push('\n');
-	to_print.push_str(&draw_bar("throttle:", true, state.invert_throttle, display_width, state.throttle_min, state.throttle_max, state.throttle));
-	to_print.push('\n');
-	to_print.push_str(&draw_bar("brake:", true, state.invert_brake, display_width, state.brake_min, state.brake_max, state.brake));
-	to_print.push('\n');
-	to_print.push_str(&draw_bar("clutch:", true, state.invert_clutch, display_width, state.clutch_min, state.clutch_max, state.clutch));
+	to_print.push_str(&draw_bar("SD: ", true, false, display_width, 0, 1, if state.shift_down {1}else{0}));
 	to_print.push('\n');
 
 	print!("{}", to_print);
